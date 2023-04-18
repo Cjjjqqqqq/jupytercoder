@@ -125,12 +125,9 @@ if (document.querySelector('body.notebook_app')) {
       const activeCell = activeTextarea.parentElement.parentElement
 
       if (activeCell) {
-        // Retrieve the content of the active cell
-        const allCells = document.querySelectorAll('.cell .input_area .CodeMirror');
-        const cellContent = getCellContent(activeCell);
-        const contextContent = getPreviousCellsContent(activeCell, allCells);
-        const code = contextContent + '\n' + cellContent;
-
+        // Retrieve the content of the active cell 
+        const code = getCellContent(activeCell);
+       
         // 开始动画
         const [animationInterval, animationElement] = startWaitingAnimation(activeCell)
 
@@ -156,14 +153,18 @@ if (document.querySelector('body.notebook_app')) {
   });
 
   function getCellContent(cell) {
+    const allCells = document.querySelectorAll('.cell .input_area .CodeMirror');
     const codeMirrorLines = cell.querySelectorAll('.CodeMirror-code pre');
+    const contextContent = getPreviousCellsContent(activeCell, allCells);
+
     const content = [];
 
     codeMirrorLines.forEach((line) => {
       content.push(line.textContent);
     });
 
-    return content.join('\n');
+    const cellContent = content.join('\n');
+    return contextContent + '\n' + cellContent;
   }
 }
 
