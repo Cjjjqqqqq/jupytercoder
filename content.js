@@ -5,11 +5,23 @@ async function getOpenAIKey() {
     });
   });
 }
-
+async function getOtherServiceUrl() {
+  return new Promise((resolve) => {
+    chrome.runtime.sendMessage({ type: "getUrl" }, (response) => {
+      resolve(response.otherServiceUrl);
+    });
+  });
+}
+async function getChecked() {
+  return new Promise((resolve) => {
+    chrome.runtime.sendMessage({ type: "getChecked" }, (response) => {
+      resolve(response.checked);
+    });
+  });
+}
 // Function to send request to OpenAI API
 async function sendToOpenAI(prompt) {
   const apiKey = await getOpenAIKey();
-  console.log('API Key: ' + apiKey)
   if (!apiKey) {
     // 总是忘记填写。。所以等了半天总是以为网络错误，改成了alert
     alert("OpenAI API key not set.");
@@ -32,6 +44,27 @@ async function sendToOpenAI(prompt) {
   return data.choices && data.choices[0] && data.choices[0].message.content;
 }
 
+async function sendToOtherService(code) {
+  const url = await getOtherServiceUrl();
+  if (!url) {
+    // 总是忘记填写。。所以等了半天总是以为网络错误，改成了alert
+    alert("otherServiceUrl not set.");
+    return;
+  }
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      inputs: code
+    })
+  })
+  const data = await response.json();
+  // 格式处理成可以输出到notebook的字符串
+  return ('\`\`\`'+data[0].generated_text+'\`\`\`').replace(/\u200B/g,'');
+}
+
 // 请求完毕后准备填入的代码
 let readyToFillCode = ""
 // 是否正在请求（防止多次请求等问题）
@@ -43,17 +76,35 @@ let requestingTextarea = null
 
 
 async function getCodeCompletion(code) {
+  const checked = await getChecked();
+  // 如果没有选择则弹出框提示
+  if (!checked) {
+    alert("The request method is not selected.");
+    return;
+  }
+    if (checked == "openaiApiKey") {
+      return await getOpenAiWrapper(code)
+    } else if (checked == "otherService") {
+      return await getOtherServiceUrlWrapper(code)
+    }
+}
+
+async function getOpenAiWrapper(code){
   const prompt = `
-I have the following code:
+  I have the following code:
+  
+  \`\`\`
+  ${code}
+  \`\`\`
+  
+  Please provide the missing code to complete the task. (do not include code that is already present in the prompt)
+  `;
+  
+    return await sendToOpenAI(prompt);
+}
 
-\`\`\`
-${code}
-\`\`\`
-
-Please provide the missing code to complete the task. (do not include code that is already present in the prompt)
-`;
-
-  return await sendToOpenAI(prompt);
+async function getOtherServiceUrlWrapper(code){
+  return await sendToOtherService(code)
 }
 
 // Check if the current page is a Jupyter Notebook
