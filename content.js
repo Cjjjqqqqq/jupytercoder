@@ -25,7 +25,7 @@ async function sendToOpenAI(prompt) {
   const apiKey = await getOpenAIKey();
   if (!apiKey) {
     // 总是忘记填写。。所以等了半天总是以为网络错误，改成了alert
-    alert("OpenAI API key not set."); match
+    alert("OpenAI API key not set."); 
     return;
   }
   const response = await fetch("https://api.openai.com/v1/chat/completions", {
