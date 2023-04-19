@@ -115,32 +115,32 @@
     <header>
       <span>Jupyter Coder</span>
     </header>
-
     <div class="input-key">
+      <div>BigCode Url:</div>
+      <div><input type="text" id="otherServiceUrl" /></div>
+    </div>
+
+    <div class="input-key input-hidden">
       <div>OpenAI API Key:</div>
       <div><input type="text" id="apiKey" /></div>
     </div>
 
-    <div class="input-key input-hidden">
-      <div>OtherService Url:</div>
-      <div><input type="text" id="otherServiceUrl" /></div>
-    </div>
-
+  
     <div class="chooseBtn">
-      <input type="radio" id="openaiApiKey" name="options" checked>
+
+      <input type="radio" id="otherService" name="options" checked>
+      <label for="otherService" class="radio-label">
+        <div class="radio-button"></div>
+        <span class="radio-text">BigCode</span>
+      </label>
+
+      <input type="radio" id="openaiApiKey" name="options" >
       <label for="openaiApiKey" class="radio-label">
         <div class="radio-button"></div>
         <span class="radio-text">OpenAI</span>
       </label>
-  
-      <input type="radio" id="otherService" name="options">
-      <label for="otherService" class="radio-label">
-        <div class="radio-button"></div>
-        <span class="radio-text">OtherService</span>
-      </label>
     </div>
     
-
     <button id="save">Save</button>
 
   </div>

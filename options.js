@@ -17,9 +17,11 @@ function getSelectedRadioValue() {
 
 // Save the API key when the Save button is clicked
 document.getElementById("save").addEventListener("click", () => {
-  chrome.storage.sync.set({ openaiApiKey: document.getElementById("apiKey").value,
-                            otherService: document.getElementById("otherServiceUrl").value,
-                            checked: getSelectedRadioValue() }, () => {
+  chrome.storage.sync.set({
+    openaiApiKey: document.getElementById("apiKey").value,
+    otherService: document.getElementById("otherServiceUrl").value,
+    checked: getSelectedRadioValue()
+  }, () => {
     alert("API key saved.");
   })
 });

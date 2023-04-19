@@ -19,12 +19,13 @@ async function getChecked() {
     });
   });
 }
+
 // Function to send request to OpenAI API
 async function sendToOpenAI(prompt) {
   const apiKey = await getOpenAIKey();
   if (!apiKey) {
     // 总是忘记填写。。所以等了半天总是以为网络错误，改成了alert
-    alert("OpenAI API key not set.");
+    alert("OpenAI API key not set."); match
     return;
   }
   const response = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -39,9 +40,14 @@ async function sendToOpenAI(prompt) {
     }),
     // 添加一个最大请求时间，目前没做相关于超时的处理，但如果超时了，就会在请求的单元格展示error
     timeout: 30000
+
   });
   const data = await response.json();
-  return data.choices && data.choices[0] && data.choices[0].message.content;
+  const suggestion = data.choices && data.choices[0] && data.choices[0].message.content;
+  // Use a regular expression to match the content between triple backticks
+  const codeBlockRegex = /```([\s\S]*?)```/g;
+  const match = codeBlockRegex.exec(suggestion);
+  return match && match[1] ? match[1].replace(/\u200B/g, '') : '';
 }
 
 async function sendToOtherService(code) {
@@ -57,12 +63,16 @@ async function sendToOtherService(code) {
       "Content-Type": "application/json"
     },
     body: JSON.stringify({
-      inputs: code
+      inputs: code.replace(/\u200B/g, '')
     })
   })
   const data = await response.json();
+  if (/^\n/.test(data)) {
+    data = data.replace(/^\n/, '');
+  }
+  console.log(data)
   // 格式处理成可以输出到notebook的字符串
-  return ('\`\`\`'+data[0].generated_text+'\`\`\`').replace(/\u200B/g,'');
+  return data[0].generated_text;
 }
 
 // 请求完毕后准备填入的代码
@@ -82,14 +92,14 @@ async function getCodeCompletion(code) {
     alert("The request method is not selected.");
     return;
   }
-    if (checked == "openaiApiKey") {
-      return await getOpenAiWrapper(code)
-    } else if (checked == "otherService") {
-      return await getOtherServiceUrlWrapper(code)
-    }
+  if (checked == "openaiApiKey") {
+    return await getOpenAiWrapper(code)
+  } else if (checked == "otherService") {
+    return await getOtherServiceUrlWrapper(code)
+  }
 }
 
-async function getOpenAiWrapper(code){
+async function getOpenAiWrapper(code) {
   const prompt = `
   I have the following code:
   
@@ -99,11 +109,11 @@ async function getOpenAiWrapper(code){
   
   Please provide the missing code to complete the task. (do not include code that is already present in the prompt)
   `;
-  
-    return await sendToOpenAI(prompt);
+
+  return await sendToOpenAI(prompt);
 }
 
-async function getOtherServiceUrlWrapper(code){
+async function getOtherServiceUrlWrapper(code) {
   return await sendToOtherService(code)
 }
 
@@ -116,6 +126,10 @@ if (document.querySelector('body.notebook_app')) {
       // 防止默认事件
       event.preventDefault();
 
+      if (isRequtest || isRequtestSuccess) {
+        return
+      }
+
       // 获取当前输入框的Textarea
       const activeTextarea = document.activeElement;
 
@@ -127,27 +141,22 @@ if (document.querySelector('body.notebook_app')) {
       if (activeCell) {
         // Retrieve the content of the active cell 
         const code = getCellContent(activeCell);
-       
+
         // 开始动画
         const [animationInterval, animationElement] = startWaitingAnimation(activeCell)
 
         isRequtest = true
         const suggestion = await getCodeCompletion(code)
-        if(suggestion){
-          // Use a regular expression to match the content between triple backticks
-          const codeBlockRegex = /```([\s\S]*?)```/g;
-          const match = codeBlockRegex.exec(suggestion);
-          const extractedCode = match && match[1] ? match[1].trim() : '';
-
+        if (suggestion) {
           clearInterval(animationInterval)
           isRequtestSuccess = true
           isRequtest = false
-          readyToFillCode = extractedCode
-          animationElement.innerHTML = extractedCode
-          
+          readyToFillCode = suggestion
+
+          animationElement.innerHTML = suggestion
         }
-        
-        
+
+
       }
     }
   });
@@ -155,7 +164,7 @@ if (document.querySelector('body.notebook_app')) {
   function getCellContent(cell) {
     const allCells = document.querySelectorAll('.cell .input_area .CodeMirror');
     const codeMirrorLines = cell.querySelectorAll('.CodeMirror-code pre');
-    const contextContent = getPreviousCellsContent(activeCell, allCells);
+    const contextContent = getPreviousCellsContent(cell, allCells);
 
     const content = [];
 
@@ -171,7 +180,7 @@ if (document.querySelector('body.notebook_app')) {
 
 // 添加tab监听器，用户请求完毕后按下tab键填入代码
 const addTabEvent = (event) => {
-  if (event.key === "Tab" && !isRequtest && isRequtestSuccess) {
+  if (event.ctrlKey && !isRequtest && isRequtestSuccess) {
     event.preventDefault();
     insertSuggestion(readyToFillCode)
 
@@ -180,7 +189,7 @@ const addTabEvent = (event) => {
   }
 }
 
-  
+
 document.addEventListener('keydown', addTabEvent)
 
 function insertSuggestion(suggestion) {
@@ -192,15 +201,19 @@ function insertSuggestion(suggestion) {
 
   // Insert the suggestion at the cursor position
   const newValue = requestingTextarea.value.slice(0, cursorPosition) + suggestion + requestingTextarea.value.slice(cursorPosition);
-  requestingTextarea.value = "\n" + newValue;
+  requestingTextarea.value = newValue;
 
   // Update the cursor position after inserting the suggestion
+  const newCursorPosition = cursorPosition + suggestion.length;
   requestingTextarea.selectionStart = requestingTextarea.selectionEnd = cursorPosition + suggestion.length;
 
-  // Trigger a change event on the textarea to update the CodeMirror instance
+  // Trigger an input event on the textarea to update the CodeMirror instance
   const event = new Event('input', { bubbles: true, cancelable: true });
   requestingTextarea.dispatchEvent(event);
 
+  // Trigger a keydown event with Tab key to perform auto-indentation
+  const tabEvent = new KeyboardEvent('keydown', { key: 'Tab' });
+  requestingTextarea.dispatchEvent(tabEvent);
 }
 
 
@@ -237,24 +250,18 @@ function getPreviousCellsContent(activeCell, allCells) {
 const startWaitingAnimation = (activeCall) => {
   const activeCell = activeCall.querySelectorAll('.CodeMirror-scroll .CodeMirror-code');
 
-  // 创建于notebook的代码格式相同的dom元素
-  const animationParentElement = document.createElement('pre');
-  animationParentElement.classList.add('CodeMirror-line');
-
-  // 设置它等待的动画字体颜色
-  animationParentElement.style.color = 'grey';
+  const lastElement = activeCell[activeCell.length - 1].querySelector('.CodeMirror-line:last-child');
 
   // 设置它等待时的动画字体dom元素
   const animationElement = document.createElement('span');
 
-  animationParentElement.appendChild(animationElement);
+  animationElement.style.color = 'grey';
 
-  // 只可能有一个dom元素，所以直接使用[0]
-  activeCell[0].appendChild(animationParentElement);
-  
+  lastElement.appendChild(animationElement);
+
   // 等待步数，每步0.333s
   let timeLeft = 90;
-  const animationInterval = setInterval(()=>{
+  const animationInterval = setInterval(() => {
     let animatedText = ''
 
     let remainder = timeLeft % 3;
@@ -270,15 +277,16 @@ const startWaitingAnimation = (activeCall) => {
         break;
     }
 
-    animationElement.innerHTML = animatedText + " time left: " + Math.floor(timeLeft-- / 3) + "s"
+    animationElement.innerHTML = ' ' + animatedText + " time left: " + Math.floor(timeLeft-- / 3) + "s"
 
     // 请求失败
-    if(timeLeft <= 0){
+    if (timeLeft <= 0) {
       animationElement.innerHTML = "error"
       clearInterval(animationInterval)
     }
 
   }, 333)
+  return [animationInterval, animationElement]
+}
 
-  return [animationInterval,animationElement]
-} 
+
